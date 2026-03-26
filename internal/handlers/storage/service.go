@@ -1,8 +1,9 @@
 package storage
 
 import (
-	"sync"
-	"time"
+	"errors"
+
+	"github.com/cespare/xxhash/v2"
 )
 
 type StorageService interface {
@@ -12,44 +13,57 @@ type StorageService interface {
 }
 
 type storage struct {
-	m     map[string]string
-	mutex sync.Mutex
+	shards []*shard
 }
 
-const TTL = 1 * time.Minute
+const shardsCount = 256
+
+var ErrItemNotFound = errors.New("item not found")
 
 func NewStorageService() StorageService {
+	s := make([]*shard, shardsCount)
+	for i := range s {
+		s[i] = NewShard()
+	}
+
 	return &storage{
-		m: make(map[string]string),
+		shards: s,
 	}
 }
 
 func (s *storage) Get(key string) (string, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	shard := s.shards[getShardIndex(key)]
+	shard.mutex.RLock()
+	defer shard.mutex.RUnlock()
 
-	return s.m[key], nil
+	item, ok := shard.m[key]
+	if !ok {
+		return "", ErrItemNotFound
+	}
+
+	return item, nil
 }
 
 func (s *storage) Set(key, value string) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	shard := s.shards[getShardIndex(key)]
+	shard.mutex.Lock()
+	defer shard.mutex.Unlock()
 
-	s.m[key] = value
-
-	go func() {
-		time.Sleep(TTL)
-		s.Delete(key)
-	}()
+	shard.m[key] = value
 
 	return nil
 }
 
 func (s *storage) Delete(key string) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	shard := s.shards[getShardIndex(key)]
+	shard.mutex.Lock()
+	defer shard.mutex.Unlock()
 
-	delete(s.m, key)
+	delete(shard.m, key)
 
 	return nil
+}
+
+func getShardIndex(value string) int {
+	return int(xxhash.Sum64String(value) % uint64(shardsCount))
 }

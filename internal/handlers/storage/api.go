@@ -18,9 +18,9 @@ func NewStorageApi(s StorageService) *StorageApi {
 }
 
 func (s *StorageApi) MapRoutes(r chi.Router) {
-	r.Post("/storage", s.create)
-	r.Post("/storage/{key}", s.get)
-	r.Delete("/storage/{key}", s.delete)
+	r.Post("/storage/set", s.create)
+	r.Post("/storage/get", s.get)
+	r.Delete("/storage/delete/{key}", s.delete)
 }
 
 func (s *StorageApi) create(w http.ResponseWriter, r *http.Request) {
