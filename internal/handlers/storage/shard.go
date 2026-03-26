@@ -2,15 +2,21 @@ package storage
 
 import (
 	"sync"
+	"time"
 )
 
+type item struct {
+	value          string
+	expirationDate time.Time
+}
+
 type shard struct {
-	mutex sync.RWMutex
-	m     map[string]string
+	mutex sync.Mutex
+	m     map[string]*item
 }
 
 func NewShard() *shard {
 	return &shard{
-		m: make(map[string]string),
+		m: make(map[string]*item),
 	}
 }

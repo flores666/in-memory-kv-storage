@@ -43,7 +43,7 @@ func (s *StorageApi) create(w http.ResponseWriter, r *http.Request) {
 func (s *StorageApi) get(w http.ResponseWriter, r *http.Request) {
 	request := ValueRequest{}
 
-	if err := render.DecodeJSON(r.Body, request); err != nil {
+	if err := render.DecodeJSON(r.Body, &request); err != nil {
 		render.Status(r, http.StatusBadRequest)
 		return
 	}
@@ -56,18 +56,21 @@ func (s *StorageApi) get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	render.Status(r, http.StatusOK)
-	render.JSON(w, r, value)
+	render.JSON(w, r, KeyValue{
+		Key:   request.Key,
+		Value: value,
+	})
 }
 
 func (s *StorageApi) delete(w http.ResponseWriter, r *http.Request) {
-	key := chi.URLParam(r, "key")
+	request := ValueRequest{}
 
-	if key == "" {
+	if err := render.DecodeJSON(r.Body, &request); err != nil {
 		render.Status(r, http.StatusBadRequest)
 		return
 	}
 
-	err := s.service.Delete(key)
+	err := s.service.Delete(request.Key)
 
 	if err != nil {
 		render.Status(r, http.StatusInternalServerError)
